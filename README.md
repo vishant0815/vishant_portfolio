@@ -13,7 +13,7 @@ Edit a project, a skill or a headline number in the admin panel and the site upd
        ┌───────────────┴────────────────┐
        ▼                                ▼
 ┌──────────────────┐          ┌──────────────────────┐
-│ Django + DRF     │          │ FastAPI service      │  (step 2)
+│ Django + DRF     │          │ FastAPI service      │
 │ content API and  │          │ contact form and     │
 │ admin panel      │          │ visitor analytics    │
 └────────┬─────────┘          └──────────┬───────────┘
@@ -30,7 +30,7 @@ with a Postgres container in place of RDS.
 | Part | Stack | Status |
 |---|---|---|
 | Content API and admin | Django 5.2 LTS, Django REST Framework, PostgreSQL | Done |
-| Contact and analytics service | FastAPI | Step 2 |
+| Contact and analytics service | FastAPI, SQLAlchemy 2 (async), Alembic | Done |
 | Frontend | Next.js, React, Tailwind CSS, animations | Step 3 |
 | Deployment | AWS Amplify, EC2, RDS, GitHub Actions with OIDC | Step 4 |
 
@@ -45,8 +45,9 @@ docker compose up --build
 
 The first start creates the database tables and loads the starting content from the CV.
 
-- API: http://localhost:8000/api/v1/portfolio/
-- Health check: http://localhost:8000/api/v1/health/
+- Content API: http://localhost:8000/api/v1/portfolio/
+- Analytics API: http://localhost:8001/api/v1/stats
+- Analytics API docs (Swagger): http://localhost:8001/api/v1/docs
 - Admin panel: http://localhost:8000/admin/
 
 Create your admin login once:
@@ -59,6 +60,7 @@ docker compose exec backend python manage.py createsuperuser
 
 Everything on the site is edited in the admin panel: profile, headline stats, skills (grouped by
 category, with optional 1–5 ratings), experience, projects, education and certifications.
+Messages sent through the contact form appear under **Inbox**; opening one marks it as read.
 
 - **Order** controls the display order (lower shows first) and **Visible** hides an item without deleting it.
 - Bullet-point fields take one point per line.
@@ -67,7 +69,7 @@ category, with optional 1–5 ratings), experience, projects, education and cert
 To reload the CV content: `docker compose exec backend python manage.py seed_portfolio`
 (add `--reset` to wipe everything first).
 
-## API
+## Content API (Django)
 
 All endpoints are public, read-only (`GET` only), cached and rate limited.
 
@@ -79,6 +81,34 @@ All endpoints are public, read-only (`GET` only), cached and rate limited.
 | `GET /api/v1/skills/` | Skills grouped by category |
 | `GET /api/v1/health/` | Service and database status, for Docker and the load balancer |
 
+## Analytics API (FastAPI)
+
+| Endpoint | Does |
+|---|---|
+| `POST /api/v1/contact` | Saves a contact message (validated, honeypot spam trap, 5 per visitor per hour) and optionally emails it through Amazon SES |
+| `POST /api/v1/events/pageview` | Records an anonymous page view (bots ignored, 60 per visitor per minute) |
+| `GET /api/v1/stats` | Views and visitors for the last 30 days, daily series, top pages and top referrers, for the live dashboard |
+| `GET /api/v1/health` | Service and database status |
+
+Interactive documentation is at `/api/v1/docs`.
+
+### Privacy
+
+The analytics are built to need no cookie banner:
+
+- No cookies, no IP addresses and no full user agents are stored.
+- Each visitor gets a one-way hash of IP and browser, keyed with a secret that changes every day,
+  so visits are counted but nobody can be followed from one day to the next.
+- Query strings are dropped from paths (they can carry personal data), and only the referring
+  site's domain is kept.
+
+### How the two services share the database
+
+Both services use the same Postgres database with separate tables. The FastAPI service owns the
+`analytics_*` tables and their Alembic migrations (with its own `analytics_alembic_version` table);
+Django reads the contact messages through an unmanaged model (`managed = False`), so it never
+alters that table.
+
 ## Security
 
 - Settings come from environment variables; no secrets are committed (`.env` is git-ignored).
@@ -86,10 +116,17 @@ All endpoints are public, read-only (`GET` only), cached and rate limited.
 - Production mode enables HTTPS redirects, HSTS, secure cookies and clickjacking protection.
 - The admin path is configurable (`DJANGO_ADMIN_URL`) so it isn't at the obvious `/admin/`.
 - CORS allows only the frontend's own origins, and the API accepts only `GET`.
-- The container runs as an unprivileged user and has a built-in health check.
+- Both containers run as an unprivileged user and have built-in health checks.
+- The analytics service refuses to start without `ANALYTICS_SECRET_KEY`, and only trusts
+  `X-Forwarded-For` when `ANALYTICS_TRUST_PROXY_HEADERS` is on (behind our own load balancer).
 
 ## Tests
 
 ```bash
+# Django: 12 tests
 docker compose exec backend python manage.py test
+
+# FastAPI: 14 tests (run from analytics/)
+pip install -r requirements-dev.txt
+pytest
 ```

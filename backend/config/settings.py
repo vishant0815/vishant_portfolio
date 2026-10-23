@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # Local
     "portfolio",
+    "inbox",
 ]
 
 MIDDLEWARE = [
@@ -106,7 +107,12 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    # Hashed, compressed files in production; plain files in development and tests (no collectstatic needed).
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if DEBUG
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

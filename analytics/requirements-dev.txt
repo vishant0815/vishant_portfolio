@@ -1,0 +1,4 @@
+-r requirements.txt
+aiosqlite==0.22.1
+httpx2==2.16.0
+pytest==9.1.1

@@ -1,5 +1,5 @@
-# Local development stack. Production runs the same backend image on AWS EC2,
-# with Amazon RDS replacing the "db" service below.
+# Local development stack. Production runs the same backend and analytics images
+# on AWS EC2, with Amazon RDS replacing the "db" service below.
 name: vishant-portfolio
 
 services:
@@ -28,6 +28,22 @@ services:
       SEED_ON_START: ${SEED_ON_START:-1}
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy  # its migrations create the inbox table the admin reads
+
+  analytics:
+    build: ./analytics
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ANALYTICS_DATABASE_URL: postgresql+asyncpg://portfolio:${POSTGRES_PASSWORD:-portfolio-local-only}@db:5432/portfolio
+      ANALYTICS_SECRET_KEY: ${ANALYTICS_SECRET_KEY:-local-dev-secret-change-me}
+    ports:
+      - "8001:8001"
     depends_on:
       db:
         condition: service_healthy
