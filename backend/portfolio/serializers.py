@@ -69,7 +69,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             "id", "title", "slug", "tagline", "description", "highlights", "skills",
-            "repo_url", "live_url", "image_url", "is_featured",
+            "status", "repo_url", "live_url", "image_url", "is_featured",
         ]
 
 

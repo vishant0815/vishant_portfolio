@@ -75,6 +75,11 @@ function Hero({ profile }) {
 /** A live detail for each section, taken from the API, so the links say what's behind them. */
 function sectionDetail(href, data) {
   if (!data) return null;
+  if (href === "/projects") {
+    const n = data.projects.length;
+    const building = data.projects.filter((project) => project.status === "in_progress").length;
+    return `${n} ${n === 1 ? "project" : "projects"}${building ? `, ${building} in progress` : ""}`;
+  }
   if (href === "/experience") {
     const n = data.experience.length;
     return `${n} ${n === 1 ? "role" : "roles"}, ${data.stats.length} measured results`;

@@ -81,9 +81,9 @@ class ExperienceAdmin(OrderedAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(OrderedAdmin):
-    list_display = ["title", "is_featured", "order", "is_visible"]
-    list_editable = ["is_featured", "order", "is_visible"]
-    list_filter = ["is_featured", "is_visible"]
+    list_display = ["title", "status", "is_featured", "order", "is_visible"]
+    list_editable = ["status", "is_featured", "order", "is_visible"]
+    list_filter = ["status", "is_featured", "is_visible"]
     prepopulated_fields = {"slug": ["title"]}
     filter_horizontal = ["skills"]
     search_fields = ["title", "tagline"]

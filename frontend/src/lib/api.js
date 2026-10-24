@@ -36,6 +36,28 @@ export async function getPortfolio() {
   }
 }
 
+/**
+ * One project by slug, for its own page.
+ * Returns { project }, { notFound: true } for an unknown slug, or { unavailable: true } if the API is down.
+ */
+export async function getProject(slug) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("portfolio", `project:${slug}`);
+  try {
+    const response = await fetch(`${CONTENT_API_URL}/api/v1/projects/${encodeURIComponent(slug)}/`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status === 404) return { notFound: true };
+    if (!response.ok) throw new Error(`responded ${response.status}`);
+    return { project: await response.json() };
+  } catch (error) {
+    console.error(`Content API unavailable for project ${slug}:`, error.message);
+    return { unavailable: true };
+  }
+}
+
 /** Visitor numbers for the live dashboard. Returns null if analytics is down. */
 export async function getVisitorStats() {
   "use cache";
