@@ -7,7 +7,7 @@ Edit a project, a skill or a headline number in the admin panel and the site upd
 
 ```
             ┌──────────────────────┐
- Browser ──▶│  Next.js frontend    │  AWS Amplify            (step 3)
+ Browser ──▶│  Next.js frontend    │  AWS Amplify
             └──────────┬───────────┘
                        │ JSON over HTTPS
        ┌───────────────┴────────────────┐
@@ -31,7 +31,7 @@ with a Postgres container in place of RDS.
 |---|---|---|
 | Content API and admin | Django 5.2 LTS, Django REST Framework, PostgreSQL | Done |
 | Contact and analytics service | FastAPI, SQLAlchemy 2 (async), Alembic | Done |
-| Frontend | Next.js, React, Tailwind CSS, animations | Step 3 |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, Motion, Recharts | In progress |
 | Deployment | AWS Amplify, EC2, RDS, GitHub Actions with OIDC | Step 4 |
 
 ## Run it locally
@@ -49,6 +49,14 @@ The first start creates the database tables and loads the starting content from 
 - Analytics API: http://localhost:8001/api/v1/stats
 - Analytics API docs (Swagger): http://localhost:8001/api/v1/docs
 - Admin panel: http://localhost:8000/admin/
+
+Then start the frontend (see `frontend/README.md`):
+
+```bash
+cd frontend && cp .env.example .env.local && npm install && npm run dev
+```
+
+Open http://localhost:3000.
 
 Create your admin login once:
 
