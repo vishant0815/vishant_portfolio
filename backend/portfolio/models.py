@@ -123,14 +123,19 @@ class Experience(Ordered):
 
 
 class Project(Ordered):
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "Completed"
+        IN_PROGRESS = "in_progress", "In progress"
+
     title = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, unique=True)
     tagline = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     highlights = models.TextField(blank=True, help_text="One point per line.")
     skills = models.ManyToManyField(Skill, blank=True, related_name="projects")
-    repo_url = models.URLField(blank=True)
-    live_url = models.URLField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.COMPLETED)
+    repo_url = models.URLField(blank=True, help_text="GitHub link. Leave blank to hide the button.")
+    live_url = models.URLField(blank=True, help_text="Live site link. Leave blank to hide the button.")
     image_url = models.URLField(blank=True, help_text="Screenshot or cover image URL.")
     is_featured = models.BooleanField(default=False)
 

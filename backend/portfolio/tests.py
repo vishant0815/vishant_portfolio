@@ -38,8 +38,7 @@ class PortfolioApiTests(TestCase):
         self.assertIsInstance(data["experience"][0]["highlights"], list)
 
     def test_hidden_projects_are_not_public(self):
-        hidden = Project.objects.get(slug="hrms-portal")
-        self.assertFalse(hidden.is_visible)
+        Project.objects.filter(slug="hrms-portal").update(is_visible=False)
         slugs = [p["slug"] for p in self.client.get(reverse("portfolio")).json()["projects"]]
         self.assertNotIn("hrms-portal", slugs)
         detail = self.client.get(reverse("project-detail", kwargs={"slug": "hrms-portal"}))
@@ -69,3 +68,12 @@ class PortfolioApiTests(TestCase):
     def test_phone_number_is_never_exposed(self):
         body = self.client.get(reverse("portfolio")).content.decode()
         self.assertNotIn("7900", body)
+
+    def test_project_links_and_status(self):
+        hrms = self.client.get(reverse("project-detail", kwargs={"slug": "hrms-portal"})).json()
+        self.assertEqual(hrms["status"], "in_progress")
+        self.assertEqual(hrms["repo_url"], "https://github.com/vishant0815/hrms_nisa_local")
+        self.assertEqual(hrms["live_url"], "")  # no live site yet, so the frontend hides that button
+        spark = self.client.get(reverse("project-detail", kwargs={"slug": "big-data-email-classification"})).json()
+        self.assertEqual(spark["status"], "completed")
+        self.assertEqual((spark["repo_url"], spark["live_url"]), ("", ""))

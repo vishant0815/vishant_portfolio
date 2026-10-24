@@ -135,7 +135,14 @@ PROJECTS = [
         "slug": "hrms-portal",
         "title": "HRMS portal for a multi-shop retailer",
         "tagline": "Rota, right-to-work tracking and location-checked attendance for 8 shops and about 200 staff.",
-        "description": "In progress. Hidden until you decide how much to show publicly.",
+        "description": (
+            "An HR management system for a retailer with 8 off-licence shops, one owner and about 200 staff. "
+            "Each shop manager builds their own rota, staff see their own shifts, and the owner sees every shop. "
+            "It records each employee's right-to-work and visa status, checks where staff clock in from, and "
+            "routes shift swaps and cover at other shops through manager approval."
+        ),
+        "status": "in_progress",
+        "repo_url": "https://github.com/vishant0815/hrms_nisa_local",
         "highlights": [
             "Rotas built by each shop manager, with an owner view across all 8 shops.",
             "Right-to-work and visa status tracking for every employee.",
@@ -144,7 +151,7 @@ PROJECTS = [
         ],
         "skills": ["Django", "Django REST Framework", "FastAPI", "Apache Kafka", "Docker", "Kubernetes", "PostgreSQL"],
         "is_featured": True,
-        "is_visible": False,
+        "is_visible": True,
     },
 ]
 
@@ -240,6 +247,9 @@ class Command(BaseCommand):
                     "title": item["title"],
                     "tagline": item["tagline"],
                     "description": item.get("description", ""),
+                    "status": item.get("status", Project.Status.COMPLETED),
+                    "repo_url": item.get("repo_url", ""),
+                    "live_url": item.get("live_url", ""),
                     "highlights": "\n".join(item["highlights"]),
                     "is_featured": item["is_featured"],
                     "is_visible": item["is_visible"],
