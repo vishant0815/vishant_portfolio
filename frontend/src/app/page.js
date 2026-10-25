@@ -80,6 +80,10 @@ function sectionDetail(href, data) {
     const building = data.projects.filter((project) => project.status === "in_progress").length;
     return `${n} ${n === 1 ? "project" : "projects"}${building ? `, ${building} in progress` : ""}`;
   }
+  if (href === "/skills") {
+    const total = data.skill_categories.reduce((sum, category) => sum + category.skills.length, 0);
+    return `${total} skills across ${data.skill_categories.length} areas`;
+  }
   if (href === "/experience") {
     const n = data.experience.length;
     return `${n} ${n === 1 ? "role" : "roles"}, ${data.stats.length} measured results`;

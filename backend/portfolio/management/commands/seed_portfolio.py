@@ -54,8 +54,11 @@ SKILLS = {
     ],
     "Frontend": ["React", "Next.js", "Vue", "Tailwind CSS", "Bootstrap"],
     "Data and machine learning": [
-        "PySpark", "Spark MLlib", "Pandas", "NumPy", "scikit-learn", "PyTorch",
-        "Hugging Face Transformers", "Feature engineering", "Model evaluation",
+        "Pandas", "NumPy", "scikit-learn", "PyTorch", "Hugging Face Transformers", "Matplotlib", "Seaborn",
+        "Requests", "BeautifulSoup", "Feature engineering", "Model evaluation",
+    ],
+    "Big data": [
+        "Apache Spark", "PySpark", "Spark SQL", "Spark MLlib", "Apache Hadoop", "HDFS", "MapReduce", "Apache Hive",
     ],
     "Databases and messaging": ["PostgreSQL", "MySQL", "Redis", "Apache Kafka"],
     "Cloud and DevOps": [
@@ -66,7 +69,10 @@ SKILLS = {
         "Data validation", "API security",
     ],
 }
-FEATURED_SKILLS = {"Python", "Django", "FastAPI", "React", "Next.js", "PostgreSQL", "AWS", "Docker", "Apache Kafka", "PySpark"}
+FEATURED_SKILLS = {
+    "Python", "Django", "FastAPI", "React", "Next.js", "PostgreSQL", "AWS", "Docker", "Apache Kafka",
+    "Apache Spark", "PySpark", "Apache Hadoop",
+}
 
 EXPERIENCE = [
     {
@@ -113,7 +119,7 @@ PROJECTS = [
             "Trained and compared three Naive Bayes classification models using a consistent training and testing workflow.",
             "Evaluated models with accuracy, precision, recall, F1-score, AUROC, confusion matrices, ROC curves and precision–recall curves.",
         ],
-        "skills": ["Python", "PySpark", "Spark MLlib", "Feature engineering", "Model evaluation"],
+        "skills": ["Python", "Apache Spark", "PySpark", "Spark MLlib", "Feature engineering", "Model evaluation"],
         "is_featured": True,
         "is_visible": True,
     },
@@ -218,11 +224,13 @@ class Command(BaseCommand):
                 slug=_slugify(category_name), defaults={"name": category_name, "order": cat_order}
             )
             for skill_order, name in enumerate(names):
-                skill, _ = Skill.objects.update_or_create(
-                    category=category,
-                    name=name,
-                    defaults={"order": skill_order, "is_featured": name in FEATURED_SKILLS},
-                )
+                # Match on name across all areas, so a skill moved to another area is moved
+                # (keeping its links to jobs and projects) rather than duplicated.
+                skill = Skill.objects.filter(name=name).first() or Skill(name=name)
+                skill.category = category
+                skill.order = skill_order
+                skill.is_featured = name in FEATURED_SKILLS
+                skill.save()
                 skills[name] = skill
 
         for order, item in enumerate(EXPERIENCE):
