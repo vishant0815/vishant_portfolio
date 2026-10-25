@@ -77,3 +77,22 @@ class PortfolioApiTests(TestCase):
         spark = self.client.get(reverse("project-detail", kwargs={"slug": "big-data-email-classification"})).json()
         self.assertEqual(spark["status"], "completed")
         self.assertEqual((spark["repo_url"], spark["live_url"]), ("", ""))
+
+    def test_big_data_area_and_moved_skills(self):
+        from .models import SkillCategory
+
+        big_data = SkillCategory.objects.get(slug="big-data")
+        names = set(big_data.skills.values_list("name", flat=True))
+        self.assertTrue({"Apache Hadoop", "Apache Spark", "PySpark", "Spark MLlib", "Apache Hive"} <= names)
+        # PySpark moved here from "Data and machine learning": one row, still linked to its project.
+        self.assertEqual(Skill.objects.filter(name="PySpark").count(), 1)
+        self.assertTrue(Skill.objects.get(name="PySpark").projects.filter(slug="big-data-email-classification").exists())
+
+    def test_reseeding_moves_a_skill_from_an_old_area(self):
+        from .models import SkillCategory
+
+        old_area = SkillCategory.objects.get(slug="data-and-machine-learning")
+        Skill.objects.filter(name="Spark MLlib").update(category=old_area)
+        call_command("seed_portfolio", verbosity=0)
+        spark_mllib = Skill.objects.get(name="Spark MLlib")
+        self.assertEqual(spark_mllib.category.slug, "big-data")

@@ -13,6 +13,11 @@ export const SECTIONS = [
     label: "Experience",
     description: "Where I've worked, what I built there, and the results it delivered.",
   },
+  {
+    href: "/skills",
+    label: "Skills",
+    description: "What I work with, and the jobs and projects where I've used each skill.",
+  },
 ];
 
 export const NAV = [{ href: "/", label: "Overview" }, ...SECTIONS];
