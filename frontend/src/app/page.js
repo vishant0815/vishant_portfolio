@@ -5,7 +5,7 @@ import { Suspense } from "react";
 
 import { HeroItem, HeroReveal } from "@/components/home/HeroReveal";
 import TracePanel, { TracePanelSkeleton } from "@/components/home/TracePanel";
-import { getPortfolio, traceBackends } from "@/lib/api";
+import { getPortfolio, getVisitorStats, traceBackends } from "@/lib/api";
 import { SECTIONS } from "@/lib/nav";
 
 /** Runs on every request (not cached), so each visitor sees freshly measured timings. */
@@ -73,7 +73,10 @@ function Hero({ profile }) {
 }
 
 /** A live detail for each section, taken from the API, so the links say what's behind them. */
-function sectionDetail(href, data) {
+function sectionDetail(href, data, stats) {
+  if (href === "/live") {
+    return stats ? `${stats.views_window.toLocaleString("en-GB")} views in the last ${stats.window_days} days` : null;
+  }
   if (!data) return null;
   if (href === "/projects") {
     const n = data.projects.length;
@@ -91,7 +94,7 @@ function sectionDetail(href, data) {
   return null;
 }
 
-function Explore({ data }) {
+function Explore({ data, stats }) {
   return (
     <section aria-labelledby="explore" className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
       <h2 id="explore" className="mb-6 text-2xl font-bold tracking-tight">
@@ -99,7 +102,7 @@ function Explore({ data }) {
       </h2>
       <ul className="divide-y divide-line border-y border-line">
         {SECTIONS.map((section) => {
-          const detail = sectionDetail(section.href, data);
+          const detail = sectionDetail(section.href, data, stats);
           return (
             <li key={section.href}>
               <Link
@@ -140,7 +143,7 @@ function ContentUnavailable() {
 }
 
 export default async function HomePage() {
-  const data = await getPortfolio();
+  const [data, stats] = await Promise.all([getPortfolio(), getVisitorStats()]);
 
   return (
     <>
@@ -152,7 +155,7 @@ export default async function HomePage() {
           </Suspense>
         </div>
       </section>
-      <Explore data={data} />
+      <Explore data={data} stats={stats} />
     </>
   );
 }

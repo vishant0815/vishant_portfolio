@@ -24,6 +24,16 @@ Open http://localhost:3000.
   the trace in (Partial Prerendering).
 - If an API is down, cached content keeps the site up and the trace shows which service failed.
 
+## Analytics and the /live page
+
+- `PageViewTracker` (in the root layout) sends one anonymous page view per page to the FastAPI
+  analytics service at `NEXT_PUBLIC_ANALYTICS_URL`. It uses no cookies or storage, sends the
+  referring site only for the landing page, and does nothing for visitors with Do Not Track or
+  Global Privacy Control switched on. The service itself ignores bots.
+- `/live` renders the latest stats on the server, then refreshes them in the browser every
+  30 seconds while the tab is visible. If the service stops responding, it keeps the last numbers
+  and shows that it's retrying.
+
 ## Theme
 
 Dark by default with a light theme toggle. A small inline script sets the theme before the

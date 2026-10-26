@@ -1,6 +1,7 @@
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import MotionProvider from "@/components/MotionProvider";
+import PageViewTracker from "@/components/PageViewTracker";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 
@@ -64,6 +65,7 @@ export default function RootLayout({ children }) {
           </main>
           <SiteFooter />
         </MotionProvider>
+        <PageViewTracker />
       </body>
     </html>
   );
