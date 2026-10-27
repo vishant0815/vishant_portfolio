@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     stats_cache_seconds: int = 60
     stats_window_days: int = 30
 
+    # Fake-email checks (see app/email_check.py). DNS lookups can be switched off where the
+    # network has no DNS; typo and throwaway-domain checks still run.
+    email_dns_check: bool = True
+    email_dns_timeout: float = 3.0
+    email_check_rate_limit: int = 30     # instant checks per visitor per minute
+
     # Optional email notifications through Amazon SES. Leave blank to only store messages.
     contact_notify_email: str = ""
     ses_from_email: str = ""

@@ -74,6 +74,9 @@ function Hero({ profile }) {
 
 /** A live detail for each section, taken from the API, so the links say what's behind them. */
 function sectionDetail(href, data, stats) {
+  if (href === "/contact") {
+    return data?.profile?.availability_note || null;
+  }
   if (href === "/live") {
     return stats ? `${stats.views_window.toLocaleString("en-GB")} views in the last ${stats.window_days} days` : null;
   }

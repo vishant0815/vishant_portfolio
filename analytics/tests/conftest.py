@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 from app.db import Base, dispose_engine, get_engine  # noqa: E402
+from app.email_check import domain_checker  # noqa: E402
 from app.ratelimit import limiter  # noqa: E402
 from app.routers.stats import clear_stats_cache  # noqa: E402
 
@@ -27,10 +28,13 @@ async def _reset_db() -> None:
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ANALYTICS_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
     monkeypatch.setenv("ANALYTICS_STATS_CACHE_SECONDS", "0")
+    # Tests never touch real DNS; the DNS tests switch it on and simulate the answers.
+    monkeypatch.setenv("ANALYTICS_EMAIL_DNS_CHECK", "false")
     get_settings.cache_clear()
     asyncio.run(_reset_db())
     limiter.reset()
     clear_stats_cache()
+    domain_checker.reset()
 
     from app.main import create_app
 
