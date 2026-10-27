@@ -1,0 +1,41 @@
+# Caddy gets and renews free HTTPS certificates (Let's Encrypt) for every address below
+# and redirects HTTP to HTTPS. SITE_DOMAIN and ACME_EMAIL come from the .env file.
+{
+	email {$ACME_EMAIL}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+# Website (Next.js)
+{$SITE_DOMAIN} {
+	import common
+	header X-Frame-Options DENY
+	# flush_interval -1 passes streamed HTML straight through (the homepage streams its live trace).
+	reverse_proxy frontend:3000 {
+		flush_interval -1
+	}
+}
+
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Django REST content API and the admin
+api.{$SITE_DOMAIN} {
+	import common
+	reverse_proxy backend:8000
+}
+
+# FastAPI analytics: page views, the live dashboard and the contact form
+analytics.{$SITE_DOMAIN} {
+	import common
+	reverse_proxy analytics:8001
+}

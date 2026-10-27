@@ -1,0 +1,61 @@
+# Production stack on the EC2 server. The database is Amazon RDS, not a container.
+# Images are built by GitHub Actions and pulled from Amazon ECR; deploy.sh runs this file.
+name: vishant-portfolio
+
+# deploy.sh writes the env files from SSM Parameter Store: .env (read by Compose itself,
+# not secret), backend.env and analytics.env (secrets, each given only to its own service).
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  caddy:
+    <<: *service
+    image: caddy:2.11-alpine
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - analytics
+
+  frontend:
+    <<: *service
+    image: ${ECR_REGISTRY}/portfolio-frontend:${IMAGE_TAG}
+    environment:
+      # Server-side calls stay on the private Docker network.
+      CONTENT_API_URL: http://backend:8000
+      ANALYTICS_API_URL: http://analytics:8001
+    depends_on:
+      backend:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+
+  backend:
+    <<: *service
+    image: ${ECR_REGISTRY}/portfolio-backend:${IMAGE_TAG}
+    env_file: backend.env
+    depends_on:
+      analytics:
+        condition: service_healthy  # its migrations create the inbox table the admin reads
+
+  analytics:
+    <<: *service
+    image: ${ECR_REGISTRY}/portfolio-analytics:${IMAGE_TAG}
+    env_file: analytics.env
+
+volumes:
+  caddy_data:   # HTTPS certificates; keep it so Let's Encrypt isn't asked again on every deploy
+  caddy_config:
