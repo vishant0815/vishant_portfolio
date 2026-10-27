@@ -1,0 +1,134 @@
+# Tests every pull request. On main it also builds the three images, pushes them to
+# Amazon ECR and deploys them to the EC2 server through AWS Systems Manager.
+# AWS access uses GitHub's OIDC token: no AWS keys are stored in GitHub.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   AWS_DEPLOY_ROLE_ARN  IAM role this workflow assumes
+#   EC2_INSTANCE_ID      the server to deploy to
+#   SITE_DOMAIN          e.g. example.com
+# The build and deploy jobs are skipped until AWS_DEPLOY_ROLE_ARN is set.
+name: Test and deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-2
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: backend/requirements.txt }
+      - run: pip install -r requirements.txt
+      - run: python manage.py test
+        env: { DJANGO_DEBUG: "1" }
+
+  test-analytics:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: analytics } }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: analytics/requirements*.txt }
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  lint-frontend:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+
+  build:
+    needs: [test-backend, test-analytics, lint-frontend]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    # The server is ARM (Graviton), so the images are built on an ARM runner.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        service: [backend, analytics, frontend]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/portfolio-${{ matrix.service }}
+          DOMAIN: ${{ vars.SITE_DOMAIN }}
+        run: |
+          args=()
+          if [ "${{ matrix.service }}" = frontend ]; then
+            args+=(--build-arg "NEXT_PUBLIC_SITE_URL=https://$DOMAIN")
+            args+=(--build-arg "NEXT_PUBLIC_ANALYTICS_URL=https://analytics.$DOMAIN")
+            # Prerender pages from the live APIs (falls back to "content unavailable" on the very first deploy).
+            args+=(--build-arg "CONTENT_API_URL=https://api.$DOMAIN")
+            args+=(--build-arg "ANALYTICS_API_URL=https://analytics.$DOMAIN")
+          fi
+          docker build "${args[@]}" -t "$IMAGE:${{ github.sha }}" ${{ matrix.service }}
+          docker push "$IMAGE:${{ github.sha }}"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy on the server
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          SHA: ${{ github.sha }}
+        run: |
+          command="cd /opt/portfolio && git fetch --quiet origin && git checkout --quiet --force $SHA && deploy/deploy.sh $SHA"
+          id=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment "Deploy $SHA" --parameters "commands=[\"$command\"],executionTimeout=[\"900\"]" \
+            --query Command.CommandId --output text)
+          echo "SSM command $id"
+          for _ in $(seq 1 90); do
+            status=$(aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Success) break ;;
+              Pending|InProgress|Delayed) sleep 10 ;;
+              *) break ;;
+            esac
+          done
+          aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE_ID" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text | tail -40
+          [ "$status" = Success ] || { echo "Deploy finished with status: $status"; exit 1; }
+      - name: Check the live site
+        env:
+          DOMAIN: ${{ vars.SITE_DOMAIN }}
+        run: |
+          for url in "https://$DOMAIN/" "https://api.$DOMAIN/api/v1/health/" "https://analytics.$DOMAIN/api/v1/health"; do
+            curl -fsS -o /dev/null --retry 6 --retry-delay 10 --retry-all-errors "$url" && echo "OK  $url"
+          done

@@ -6,33 +6,28 @@ Edit a project, a skill or a headline number in the admin panel and the site upd
 ## Architecture
 
 ```
-            ┌──────────────────────┐
- Browser ──▶│  Next.js frontend    │  AWS Amplify
-            └──────────┬───────────┘
-                       │ JSON over HTTPS
-       ┌───────────────┴────────────────┐
-       ▼                                ▼
-┌──────────────────┐          ┌──────────────────────┐
-│ Django + DRF     │          │ FastAPI service      │
-│ content API and  │          │ contact form and     │
-│ admin panel      │          │ visitor analytics    │
-└────────┬─────────┘          └──────────┬───────────┘
-         └──────────────┬────────────────┘
-                        ▼
-              ┌───────────────────┐
-              │ PostgreSQL        │  Amazon RDS in production
-              └───────────────────┘
+                     AWS EC2 server (Docker Compose)
+          ┌──────────────────────────────────────────────────────┐
+ Browser ─┼─▶ Caddy (HTTPS)                                       │
+          │     ├─ DOMAIN            ─▶ Next.js frontend ───┐     │
+          │     ├─ api.DOMAIN        ─▶ Django + DRF, admin ◀┤     │
+          │     └─ analytics.DOMAIN  ─▶ FastAPI service     ◀┘     │
+          └───────────────────────────────┬──────────────────────┘
+                                          ▼
+                                 PostgreSQL (Amazon RDS)
 ```
 
-Both backends run as Docker containers on AWS EC2. Locally, Docker Compose runs the same images
-with a Postgres container in place of RDS.
+All three services run as Docker containers on one AWS EC2 server behind Caddy, which handles
+HTTPS. The frontend calls both APIs over the private Docker network when rendering; browsers call
+the analytics service directly for page views, the live dashboard and the contact form. Locally,
+Docker Compose runs the backends with a Postgres container in place of RDS.
 
 | Part | Stack | Status |
 |---|---|---|
 | Content API and admin | Django 5.2 LTS, Django REST Framework, PostgreSQL | Done |
 | Contact and analytics service | FastAPI, SQLAlchemy 2 (async), Alembic | Done |
-| Frontend | Next.js 16, React 19, Tailwind CSS 4, Motion, Recharts | In progress |
-| Deployment | AWS Amplify, EC2, RDS, GitHub Actions with OIDC | Step 4 |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, Motion, Recharts | Done |
+| Deployment | AWS EC2, RDS, ECR, Systems Manager, Caddy, GitHub Actions with OIDC | In progress |
 
 ## Run it locally
 
@@ -140,7 +135,7 @@ alters that table.
 - CORS allows only the frontend's own origins, and the API accepts only `GET`.
 - Both containers run as an unprivileged user and have built-in health checks.
 - The analytics service refuses to start without `ANALYTICS_SECRET_KEY`, and only trusts
-  `X-Forwarded-For` when `ANALYTICS_TRUST_PROXY_HEADERS` is on (behind our own load balancer).
+  `X-Forwarded-For` when `ANALYTICS_TRUST_PROXY_HEADERS` is on (behind our own reverse proxy).
 
 ## Tests
 
@@ -152,3 +147,33 @@ docker compose exec backend python manage.py test
 pip install -r requirements-dev.txt
 pytest
 ```
+
+## Deployment (AWS, London region)
+
+| Piece | AWS service |
+|---|---|
+| Server | EC2 `t4g.small` (ARM), Amazon Linux 2023, Docker Compose ([deploy/](deploy/)) |
+| Database | RDS PostgreSQL 17 `db.t4g.micro`, private, encrypted, 7 days of backups |
+| Images | ECR, one repository per service |
+| Secrets | Systems Manager Parameter Store (`/portfolio/prod/...`), encrypted |
+| HTTPS | Caddy with Let's Encrypt certificates, renewed automatically |
+| Domain | Route 53 |
+
+Only ports 80 and 443 are open. There is no SSH: the server is managed through Systems Manager,
+and the database accepts connections only from the server.
+
+**How a deploy works.** Every push to `main` runs the tests, then
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) builds the three images on an ARM
+runner, pushes them to ECR and asks Systems Manager to run [deploy/deploy.sh](deploy/deploy.sh) on
+the server. That script writes the env files from Parameter Store, pulls the new images, restarts
+the containers and waits until they are healthy. GitHub signs in to AWS with a short-lived OIDC
+token, so no AWS keys are stored in GitHub.
+
+| Address | Serves |
+|---|---|
+| `https://DOMAIN` | the website (`www.` redirects here) |
+| `https://api.DOMAIN` | Django content API and the admin panel |
+| `https://analytics.DOMAIN` | FastAPI analytics and contact service |
+
+**Content.** The first deploy loads the CV content once (`deploy.sh <tag> --seed`). After that,
+content is edited only in the admin panel; deploys never overwrite it.

@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // Builds a self-contained server (.next/standalone) for the Docker image.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
