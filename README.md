@@ -93,12 +93,26 @@ All endpoints are public, read-only (`GET` only), cached and rate limited.
 
 | Endpoint | Does |
 |---|---|
-| `POST /api/v1/contact` | Saves a contact message (validated, honeypot spam trap, 5 per visitor per hour) and optionally emails it through Amazon SES |
+| `POST /api/v1/contact` | Saves a contact message (validated, fake-email checks, honeypot spam trap, 5 per visitor per hour) and optionally emails it through Amazon SES |
+| `POST /api/v1/contact/check-email` | Instant check used by the form: catches typos in big providers ("Did you mean ...?"), throwaway inboxes and domains that can't receive email |
 | `POST /api/v1/events/pageview` | Records an anonymous page view (bots ignored, 60 per visitor per minute) |
 | `GET /api/v1/stats` | Views and visitors for the last 30 days, daily series, top pages and top referrers, for the live dashboard |
 | `GET /api/v1/health` | Service and database status |
 
 Interactive documentation is at `/api/v1/docs`.
+
+### Fake-email checks
+
+`app/email_check.py` rejects three kinds of address that can't be real:
+
+- **Typos** in big providers (`gmial.com`, `outlook.con`), with a suggested correction.
+- **Throwaway inboxes** (Mailinator, YOPmail and about 10,000 others), from the open-source
+  `disposable-email-domains` list.
+- **Domains that can't receive email**, by looking up the domain's MX (and A/AAAA) records.
+
+It can't tell whether a mailbox exists at a real provider (`randomname@gmail.com`): providers
+hide that to stop spammers. DNS trouble never blocks a real person: if a lookup times out, or
+MX lookups are filtered on the network, the DNS step is skipped and the other checks still apply.
 
 ### Privacy
 
@@ -134,7 +148,7 @@ alters that table.
 # Django: 12 tests
 docker compose exec backend python manage.py test
 
-# FastAPI: 14 tests (run from analytics/)
+# FastAPI: 32 tests (run from analytics/)
 pip install -r requirements-dev.txt
 pytest
 ```

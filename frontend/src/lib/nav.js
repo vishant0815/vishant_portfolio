@@ -23,6 +23,11 @@ export const SECTIONS = [
     label: "Live",
     description: "Real-time visitor numbers for this site, from my own FastAPI analytics service.",
   },
+  {
+    href: "/contact",
+    label: "Contact",
+    description: "Send me a message about a part-time role or a project. I reply by email.",
+  },
 ];
 
 export const NAV = [{ href: "/", label: "Overview" }, ...SECTIONS];

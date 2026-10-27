@@ -34,6 +34,19 @@ Open http://localhost:3000.
   30 seconds while the tab is visible. If the service stops responding, it keeps the last numbers
   and shows that it's retrying.
 
+## Contact form
+
+`/contact` posts to the FastAPI service's `POST /api/v1/contact`. The form checks the same rules
+as the API before sending (name, valid email, 10 to 5,000 characters), shows errors next to each
+field, and handles the API's validation errors and its 5-per-hour limit. A hidden honeypot field
+catches bots. Messages appear in the Django admin under Inbox.
+
+The email is checked as soon as the visitor leaves the field: first its format in the browser,
+then `POST /api/v1/contact/check-email` for typos (with a one-click "Did you mean ...?" fix),
+throwaway inboxes and domains that can't receive mail. A spinner shows while checking and a tick
+once the address passes. If the check can't run, the form still works; the server checks again
+on send.
+
 ## Theme
 
 Dark by default with a light theme toggle. A small inline script sets the theme before the

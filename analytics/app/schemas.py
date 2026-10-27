@@ -19,6 +19,16 @@ class ContactIn(BaseModel):
         return value
 
 
+class EmailCheckIn(BaseModel):
+    email: EmailStr
+
+
+class EmailCheckOut(BaseModel):
+    valid: bool
+    message: str = ""
+    suggestion: str = ""
+
+
 class AcceptedOut(BaseModel):
     status: str = "received"
 
