@@ -76,6 +76,12 @@ body {
   border-radius: 4px;
 }
 
+/* Charts: clicking a bar focuses the chart, and browsers draw their default box around it.
+   Hide that for mouse and touch; keyboard users still get the accent ring above. */
+.recharts-wrapper :focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Theme switch: a circular reveal from the toggle button (View Transitions API). */
 ::view-transition-old(root),
 ::view-transition-new(root) {
