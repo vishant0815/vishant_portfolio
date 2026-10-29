@@ -3,4 +3,10 @@ __pycache__/
 db.sqlite3
 staticfiles/
 .env
+.env.*
+*.env
 .venv/
+venv/
+.pytest_cache/
+.coverage
+Dockerfile

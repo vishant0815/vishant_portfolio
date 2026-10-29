@@ -5,3 +5,8 @@ __pycache__/
 tests/
 requirements-dev.txt
 .env
+.env.*
+*.env
+.venv/
+venv/
+Dockerfile
